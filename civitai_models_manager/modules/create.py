@@ -83,7 +83,7 @@
 # ) -> None:
 
 #     raw_model = get_model_details(CIVITAI_MODELS, CIVITAI_VERSIONS, requested_model)
-    
+
 #     for v in raw_model.get("versions"):
 #         print(v)
 

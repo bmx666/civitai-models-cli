@@ -1,13 +1,15 @@
 import os
 import typer
 import httpx
-import importlib.resources as pkg_resources
+import importlib.resources
 
 from pathlib import Path
 from typing import Any, Dict, List
 from .helpers import create_table, feedback_message, display_readme
 from rich.console import Console
 import time
+import tempfile
+
 
 from civitai_models_manager import (
     OLLAMA_OPTIONS,
@@ -121,7 +123,7 @@ def sanity_check_cli(**kwargs) -> None:
         sanity_table.add_row(check, status, message, style=style)
 
     console.print(sanity_table)
-    
+
 
 def about_cli(readme: bool, changelog: bool) -> None:
     documents: List[str] = []
@@ -137,17 +139,26 @@ def about_cli(readme: bool, changelog: bool) -> None:
     for document in documents:
         try:
             # Try to get the file content from the package resources
-            content = pkg_resources.read_text("civitai_models_manager", document)
+            with importlib.resources.open_text("civitai_models_manager", document) as f:
+                content = f.read()
             # Create a temporary file to pass to display_readme
-            with Path(document).open("w", encoding="utf-8") as temp_file:
+            with tempfile.NamedTemporaryFile(
+                mode="w", delete=False, suffix=".md"
+            ) as temp_file:
                 temp_file.write(content)
-            display_readme(document)
+                temp_file_path = temp_file.name
+            display_readme(temp_file_path)
             # Remove the temporary file
-            Path(document).unlink()
-        except FileNotFoundError:
+            Path(temp_file_path).unlink()
+        except (FileNotFoundError, ImportError, ModuleNotFoundError):
             # If not found in package resources, try the current directory
             local_path = Path(document)
             if local_path.exists():
                 display_readme(str(local_path))
             else:
-                typer.echo(f"{document} not found.")
+                # Try one directory up
+                parent_path = local_path.parent.parent / document
+                if parent_path.exists():
+                    display_readme(str(parent_path))
+                else:
+                    typer.echo(f"{document} not found.")

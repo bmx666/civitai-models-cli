@@ -1,5 +1,5 @@
 # /// script
-# requires-python = ">=3.11"
+# requires-python = ">=3.9"
 # dependencies = [
 #   "typer",
 #   "rich",
@@ -15,7 +15,7 @@
 
 import typer
 
-from typing import Optional
+from typing import List, Optional
 from civitai_models_manager.__version__ import __version__
 from civitai_models_manager import (
     MODELS_DIR,
@@ -29,7 +29,6 @@ from civitai_models_manager import (
     OPENAI_OPTIONS,
     GROQ_OPTIONS,
 )
-from typing import List
 from .modules.helpers import feedback_message
 from .modules.tools import sanity_check_cli, about_cli
 from .modules.stats import inspect_models_cli
@@ -39,6 +38,7 @@ from .modules.download import download_model_cli
 from .modules.ai import explain_model_cli
 from .modules.search import search_cli_sync
 from .modules.remove import remove_models_cli
+
 # from .modules.create import create_image_cli
 
 from rich.traceback import install

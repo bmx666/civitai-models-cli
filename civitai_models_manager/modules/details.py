@@ -1,11 +1,10 @@
 import httpx
 import subprocess
-
 from typing import Any, Dict, List, Tuple, Optional
 import html2text
 import questionary
 import re
-
+from functools import lru_cache
 from .helpers import feedback_message, create_table, add_rows_to_table
 from .utils import safe_get, safe_url, format_file_size
 from enum import Enum
@@ -13,15 +12,10 @@ from rich.text import Text
 from rich.markdown import Markdown
 from rich.console import Console
 
-
 __all__ = ["get_model_details_cli"]
 
 console = Console(soft_wrap=True)
 h2t = html2text.HTML2Text()
-
-
-def fetch_model_data(url: str, model_id: int) -> Optional[Dict]:
-    return make_request(f"{url}/{model_id}")
 
 
 class DetailActions(Enum):
@@ -34,6 +28,18 @@ class DetailActions(Enum):
     CANCEL = "Cancel"
 
 
+# @lru_cache(maxsize=128)
+def fetch_model_data(url: str, model_id: int) -> Optional[Dict]:
+    data = make_request(f"{url}/{model_id}")
+    if data and "modelVersions" in data:
+        # Ensure we have the urn:air for at least the first version
+        first_version = data["modelVersions"][0] if data["modelVersions"] else {}
+        if "air" not in first_version:
+            first_version["air"] = process_string(first_version, data, 0)
+    return data
+
+
+# @lru_cache(maxsize=128)
 def fetch_version_data(
     versions_url: str, models_url: str, model_id: int
 ) -> Optional[Dict]:
@@ -41,7 +47,12 @@ def fetch_version_data(
     if version_data:
         parent_model_data = make_request(f"{models_url}/{version_data.get('modelId')}")
         if parent_model_data:
-            return {**version_data, **parent_model_data}
+            combined_data = {**version_data, **parent_model_data}
+            if "air" not in combined_data:
+                combined_data["air"] = process_string(
+                    version_data, parent_model_data, 0
+                )
+            return combined_data
     return None
 
 
@@ -49,12 +60,11 @@ def make_request(url: str) -> Optional[Dict]:
     try:
         response = httpx.get(url)
         if response.status_code == 404:
-            # TODO: Write a check for model versions that return 404 since civitai on gives pages to parent models and not versions
+            # TODO: Write a check for model versions that return 404 since civitai only gives pages to parent models and not versions
             pass
         else:
             response.raise_for_status()
         return response.json()
-
     except httpx.RequestError as e:
         feedback_message(f"Failed to get data from {url}: {e}", "error")
         return None
@@ -68,41 +78,37 @@ def get_model_details(
         return {}
 
     model_data = fetch_model_data(CIVITAI_MODELS, model_id)
-
     if "error" in model_data:
         model_data = fetch_version_data(CIVITAI_VERSIONS, CIVITAI_MODELS, model_id)
-    
+
     return process_model_data(model_data) if model_data else {}
 
 
 def process_string(v: Dict[str, Any], data: Dict[str, Any], idx: int) -> str:
-    # Construct the original string
-    input_string = f"urn:air:{v.get('baseModel', '')}:{data.get('type', 'checkpoint')}:civitai:{data.get('id')}@{v.get('id')}"
-    
-    # Convert to lowercase
+    model_id = data.get("id") or v.get("modelId")
+    version_id = v.get("id")
+    base_model = v.get("baseModel", "")
+    model_type = data.get("type", "checkpoint")
+
+    input_string = f"urn:air:{base_model}:{model_type}:civitai:{model_id}@{version_id}"
     processed = input_string.lower()
-    
-    # Define replacements as (pattern, replacement) tuples
+
     replacements: List[Tuple[str, str]] = [
         (r"flux\.1\s*[sd]", "flux1"),
         (r"sd\s*(?:1\.5|1)", "sd1"),
         (r"sd\s*(?:2\.5|2)", "sd2"),
         (r"sd\s*3", "sd3"),
         (r"sdxl(?:[-\s].*)?", "sdxl"),
-        # Add more replacements as needed
     ]
-    
-    # Apply all replacements using regex
+
     for pattern, replacement in replacements:
         processed = re.sub(pattern, replacement, processed, flags=re.IGNORECASE)
-    
+
     return processed
 
 
 def process_model_data(data: Dict) -> Dict[str, Any]:
     is_version = "model" in data
-    
-
     versions = (
         [
             {
@@ -112,14 +118,50 @@ def process_model_data(data: Dict) -> Dict[str, Any]:
                 "download_url": v.get("files", [{}])[0].get("downloadUrl", ""),
                 "images": v.get("images", [{}])[0].get("url", ""),
                 "file": v.get("files", [{}])[0].get("name", ""),
-                "air": process_string(v, data, i) 
-                #f"urn:air:{v.get('baseModel', '')}:{data.get('type', 'checkpoint')}:civitai:{data.get('id')}@{v.get('id')}".lower().replace("flux.1 s", "flux1")
+                "air": process_string(v, data, i),
             }
             for i, v in enumerate(data.get("modelVersions", []))
         ]
         if not is_version
         else []
     )
+
+    return {
+        "id": data.get("id", ""),
+        "parent_id": data.get("modelId") if is_version else None,
+        "parent_name": safe_get(data, ["model", "name"]) if is_version else None,
+        "name": data.get("name", ""),
+        "description": data.get("description", ""),
+        "type": safe_get(data, ["model", "type"] if is_version else ["type"], ""),
+        "base_model": data.get("baseModel", ""),
+        "air": data.get("air", ""),
+        "download_url": safe_get(
+            data,
+            ["modelVersions", 0, "downloadUrl"] if not is_version else ["downloadUrl"],
+            "",
+        ),
+        "tags": data.get("tags", []),
+        "creator": safe_get(data, ["creator", "username"], ""),
+        "trainedWords": safe_get(
+            data,
+            (
+                ["modelVersions", 0, "trainedWords"]
+                if not is_version
+                else ["trainedWords"]
+            ),
+            "None",
+        ),
+        "nsfw": (
+            Text("Yes", style="bright_yellow")
+            if data.get("nsfw", False)
+            else Text("No", style="bright_red")
+        ),
+        "metadata": get_metadata(data, is_version),
+        "versions": versions,
+        "images": safe_get(
+            data, ["modelVersions", 0, "images"] if not is_version else ["images"], []
+        ),
+    }
 
     return {
         "id": data.get("id", ""),
@@ -178,6 +220,7 @@ def print_model_details(
     model_table = create_table(
         "", [("Attributes", "bright_yellow"), ("Values", "white")]
     )
+
     add_rows_to_table(
         model_table,
         {
@@ -188,14 +231,19 @@ def print_model_details(
             "Creator": model_details["creator"],
             "NSFW": model_details["nsfw"],
             "Size": model_details["metadata"]["size"],
-            "AIR": model_details["air"] if model_details.get("air") else model_details["versions"][0]["air"],
+            "AIR": (
+                model_details["air"]
+                if model_details.get("air")
+                else model_details["versions"][0]["air"]
+            ),
         },
     )
+
     console.print(model_table)
 
     if desc:
         desc_table = create_table("", [("Description", "white")])
-        desc_table.add_row(Markdown(h2t.handle( model_details["description"])))
+        desc_table.add_row(Markdown(h2t.handle(model_details["description"])))
         console.print(desc_table)
 
     versions = model_details.get("versions", [])
@@ -243,9 +291,8 @@ def print_model_details(
                     Text(f"{nsfw_level} // SAFE", style="bright_green"),
                     safe_url(image["url"]),
                 )
-
         feedback_message(
-            "NSFW Ratings are provided by the API, not by the this CLI Tool", "info"
+            "NSFW Ratings are provided by the API, not by this CLI Tool", "info"
         )
         console.print(images_table)
 
@@ -283,7 +330,6 @@ def print_model_details(
             "Select a version to get details on",
             choices=[f"{version['id']} - {version['name']}" for version in versions],
         ).ask()
-
         if version_details:
             subprocess.run(
                 f"civitai-models details {int(version_details.split(' ')[0])}",
@@ -312,12 +358,9 @@ def get_model_details_cli(
     try:
         model_id = int(identifier)
         model_details = get_model_details(CIVITAI_MODELS, CIVITAI_VERSIONS, model_id)
-
         if model_details:
             print_model_details(model_details, desc, images)
-            # model_id = typer.prompt("Enter the model ID to download model or \"search\" for a quick search by tags; \"cancel\" to cancel", default="")
         else:
             feedback_message(f"No model found with ID: {identifier}", "error")
-
     except ValueError:
         feedback_message("Invalid model ID. Please enter a valid number.", "error")
