@@ -39,7 +39,7 @@ from .modules.ai import explain_model_cli
 from .modules.search import search_cli_sync
 from .modules.remove import remove_models_cli
 
-# from .modules.create import create_image_cli
+from .modules.create import create_image_cli, fetch_job_details, cancel_job
 
 from rich.traceback import install
 
@@ -203,30 +203,54 @@ def sanity_check_command():
     )
 
 
-@create_group.command("image", help="Generate a image on the CivitAI platform.")
+@create_group.command("image", help="Generate an image on the CivitAI platform.")
 def create_image_command(
-    model: int = typer.Argument(0, help="The ID of the model"),
+    model: int = typer.Argument(..., help="The ID of the model"),
+    lora: List[int] = typer.Option([], help="The IDs of the Lora models"),
 ):
     """
-    Generate a image on the CivitAI platform.
-    :return: The result of the image creation.
+    Generate an image on the CivitAI platform.
     """
-    # create_image_cli(CIVITAI_MODELS, CIVITAI_VERSIONS, model)
-    return feedback_message("Coming in v0.8.6", "info")
+    try:
+        create_image_cli(CIVITAI_MODELS, CIVITAI_VERSIONS, model, lora or [])
+    except Exception as e:
+        feedback_message(f"Error generating image: {str(e)}", "error")
 
 
-@create_group.command("check-jobs", help="Fetch jobs details based on token or Job ID.")
+@create_group.command("check-jobs", help="Fetch job details based on Job ID.")
 def fetch_job_command(
-    token: str = typer.Argument(None, help="CivitAI token"),
-    query: str = typer.Argument(None, help="Search query"),
-    is_job_id: int = typer.Option(False, help="Whether the token is a Job ID"),
-    cancel: bool = False,
+    job_id: str = typer.Argument(..., help="Job ID to fetch details for"),
+    user_id: str = typer.Option(None, help="User ID to query jobs for"),
+    detailed: bool = typer.Option(False, help="Get detailed job information"),
 ):
     """
-    Fetch jobs details based on token or Job ID.
-    :return: The result of the job details.
+    Fetch job details based on Job ID or query jobs.
     """
-    return feedback_message("Coming in v0.8.6", "info")
+    try:
+        job_details = fetch_job_details(job_id, user_id, detailed)
+        if job_details:
+            typer.echo(job_details)
+        else:
+            feedback_message("No job details found.", "warning")
+    except Exception as e:
+        feedback_message(f"Error fetching job details: {str(e)}", "error")
+
+
+@create_group.command("cancel-job", help="Cancel a job based on Job ID.")
+def cancel_job_command(
+    job_id: str = typer.Argument(..., help="Job ID to cancel"),
+):
+    """
+    Cancel a job based on Job ID.
+    """
+    try:
+        response = cancel_job(job_id)
+        if response:
+            typer.echo(response)
+        else:
+            feedback_message("Failed to cancel the job.", "error")
+    except Exception as e:
+        feedback_message(f"Error cancelling job: {str(e)}", "error")
 
 
 @stats_group.command(

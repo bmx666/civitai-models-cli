@@ -94,16 +94,16 @@ def process_string(v: Dict[str, Any], data: Dict[str, Any], idx: int) -> str:
     processed = input_string.lower()
 
     replacements: List[Tuple[str, str]] = [
-        (r"flux\.1\s*[sd]", "flux1"),
-        (r"sd\s*(?:1\.5|1)", "sd1"),
-        (r"sd\s*(?:2\.5|2)", "sd2"),
-        (r"sd\s*3", "sd3"),
-        (r"sdxl(?:[-\s].*)?", "sdxl"),
+        (r"flux\.1\s*[sd](?=:)", "flux1"),
+        (r"sd\s*(?:1\.5|1)(?=:)", "sd1"),
+        (r"sd\s*(?:2\.5|2)(?=:)", "sd2"),
+        (r"sd\s*3(?=:)", "sd3"),
+        (r"sdxl(?:\s+1\.0)?(?=:)", "sdxl"),
     ]
 
     for pattern, replacement in replacements:
         processed = re.sub(pattern, replacement, processed, flags=re.IGNORECASE)
-
+    
     return processed
 
 
