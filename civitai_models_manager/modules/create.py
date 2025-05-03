@@ -1,4 +1,5 @@
 import os
+import random
 from enum import Enum
 from typing import Dict, List, Final, Optional
 from questionary import select
@@ -44,6 +45,20 @@ SCHEDULERS: Final[List[str]] = [
 ]
 
 
+
+CLIP_SKIP: Final[range] = range(-2, 3)
+IMAGE_SIZES: Dict[str, str] = {
+    "9:16 - (768x1344)": "768x1344",
+    "10:13 - (832x1216)": "832x1216",
+    "4:5 - (896x1152)": "896x1152",
+    "1:1 - (1024x1024)": "1024x1024",
+    "2:3 - (1024x1536)": "1024x1536",
+    "4:3 - (1152x896)": "1152x896",
+    "3:2 - (1216x832)": "1216x832",
+    "16:9 - (1344x768)": "1344x768",
+    "3:2 - (1536x1024)": "1536x1024",
+}
+
 class CreateOptions(Enum):
     MODEL = "What model would you like to use? [Required]"
     PROMPT = "Positive Prompt [Required]"
@@ -52,6 +67,7 @@ class CreateOptions(Enum):
     STEPS = "Steps [Optional]"
     CFG_SCALE = "CFG Scale [Optional]"
     WIDTH_HEIGHT = "Width x Height [Required]"
+    CLIP_SKIP = ""
     CANCEL = "Cancel"
 
 
@@ -86,6 +102,8 @@ def generate_image(
     scheduler: str,
     steps: int,
     cfg_scale: float,
+    seed: int,
+    clip_step: int,
     lora_list: List[int] = []
 ):
     """Generate the image using the Civitai SDK."""
@@ -220,15 +238,19 @@ def create_image_cli(
 
         neg_prompt = prompt("Enter negative prompt (optional):").ask()
 
-        width_height = prompt("Enter width x height (e.g., 1024x1024):", default="1024x1024").ask()
-        try:
-            width, height = map(int, width_height.split("x"))
-        except ValueError:
-            feedback_message(
-                "Invalid width x height format. Please use format like '1024x1024'.",
-                "error",
-            )
+        # Select width and height from predefined options
+        width_height = select(
+            "Select width x height:",
+            choices=list(IMAGE_SIZES.keys()),
+        ).ask()
+
+        if not width_height:
+            feedback_message("Width x Height selection is required.", "error")
             return
+
+        # Get the corresponding value from IMAGE_SIZES
+        width_height_value = IMAGE_SIZES[width_height]
+        width, height = map(int, width_height_value.split("x"))
 
         scheduler = select("Select scheduler:", choices=SCHEDULERS).ask()
 
@@ -248,7 +270,37 @@ def create_image_cli(
             feedback_message("Invalid CFG scale. Please enter a number.", "error")
             return
 
-        #Generate image
+        # Ask for seed
+        use_random_seed = select(
+            "Do you want to use a random seed or enter one?",
+            choices=["Random Seed", "Enter Seed"],
+        ).ask()
+
+        if use_random_seed == "Random Seed":
+            seed = random.randint(0, 2**32 - 1)
+            feedback_message(f"Using random seed: {seed}", "info")
+        else:
+            seed_input = prompt("Enter seed:").ask()
+            try:
+                seed = int(seed_input)
+            except ValueError:
+                feedback_message("Invalid seed. Please enter an integer.", "error")
+                return
+
+        # Ask for clip skip
+        clip_skip_input = prompt("Enter clip skip value (-2 to 2):", default="1").ask()
+        try:
+            clip_skip = int(clip_skip_input)
+            if clip_skip not in CLIP_SKIP:
+                raise ValueError
+        except ValueError:
+            feedback_message(
+                "Invalid clip skip value. Please enter an integer between -2 and 2.",
+                "error",
+            )
+            return
+
+        # Generate image
         response = generate_image(
             CIVITAI_MODELS,
             CIVITAI_VERSIONS,
@@ -260,10 +312,13 @@ def create_image_cli(
             scheduler,
             steps,
             cfg_scale,
+            seed,
+            clip_skip,
             lora_list,
         )
 
-        if response:
+        # Check if the response indicates success
+        if response and response.get("success", False):  # Adjust based on actual API response structure
             console.print("Image generation response:", style="bold")
             print_json(data=response)
 

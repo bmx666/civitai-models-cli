@@ -113,6 +113,7 @@ def process_model_data(data: Dict) -> Dict[str, Any]:
         [
             {
                 "id": v.get("id", ""),
+                "stats": v.get("stats", ""),
                 "name": v.get("name", ""),
                 "base_model": v.get("baseModel", ""),
                 "download_url": v.get("files", [{}])[0].get("downloadUrl", ""),
@@ -131,6 +132,7 @@ def process_model_data(data: Dict) -> Dict[str, Any]:
         "parent_id": data.get("modelId") if is_version else None,
         "parent_name": safe_get(data, ["model", "name"]) if is_version else None,
         "name": data.get("name", ""),
+        "stats": data.get("stats", ""),
         "description": data.get("description", ""),
         "type": safe_get(data, ["model", "type"] if is_version else ["type"], ""),
         "base_model": data.get("baseModel", ""),
@@ -168,6 +170,7 @@ def process_model_data(data: Dict) -> Dict[str, Any]:
         "parent_id": data.get("modelId") if is_version else None,
         "parent_name": safe_get(data, ["model", "name"]) if is_version else None,
         "name": data.get("name", ""),
+        "stats": data.get("stats", ""),
         "description": data.get("description", ""),
         "type": safe_get(data, ["model", "type"] if is_version else ["type"], ""),
         "base_model": data.get("baseModel", ""),
@@ -226,6 +229,7 @@ def print_model_details(
         {
             "Model ID": model_details["id"],
             "Name": model_details["name"],
+            "Stats": model_details["stats"],
             "Type": model_details["type"],
             "Tags": model_details.get("tags", []),
             "Creator": model_details["creator"],

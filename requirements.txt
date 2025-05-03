@@ -10,4 +10,4 @@ openai
 groq
 asyncio
 tenacity
-civitai
+civitai-py

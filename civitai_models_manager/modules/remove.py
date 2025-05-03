@@ -71,6 +71,11 @@ def select_models_to_delete(
             "Enter the name of the model to delete:", style=custom_style
         ).ask()
 
+        # Abort if the input is empty
+        if not model_name:
+            console.print("No model name entered. Aborting operation.", style="bright_red")
+            return []
+
         # Find the first model that starts with the user's input (case-insensitive)
         matching_model = next(
             (
@@ -157,6 +162,10 @@ def remove_models_cli(**kwargs):
     # model_version_ids = typer.prompt("Enter the model name you wish to delete (comma-separated):")
 
     selected_models = select_models_to_delete(models_in_folder)
+
+    if not selected_models:
+        console.print("No model selected for deletion. Aborting operation.", style="bright_red")
+        return  # Abort if no model is selected
 
     if selected_models:
         # No need to filter models_in_folder, as selected_models already contains full tuples

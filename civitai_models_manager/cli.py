@@ -7,9 +7,13 @@
 #   "shellingham",
 #   "html2text",
 #   "python-dotenv",
+#   "questionary",
 #   "ollama",
 #   "openai",
-#   "groq"
+#   "groq",
+#   "asyncio",
+#   "tenacity",
+#   "civitai-py"
 # ]
 # ///
 
@@ -132,7 +136,6 @@ civitai_cli.add_typer(
     no_args_is_help=True,
 )
 
-
 @search_group.command(
     "civitai",
     help="Search for models by query, tag, or types, which are optional via the API.",
@@ -165,7 +168,7 @@ def local_search_command(
 
 
 @tools_group.command(
-    "explain",
+    "explain (deprecated)",
     help="Get a summary of a specific model by ID using the specified service (default is Ollama).",
 )
 def explain_model_command(
@@ -301,26 +304,26 @@ def details_command(
     )
 
 
-@civitai_cli.command("download", help="Download up to 3 specific model variants by ID.")
+@civitai_cli.command("download", help="Download up to 5 specific model variants by ID.")
 def download_model_command(
     identifiers: List[str] = typer.Argument(
-        ..., help="The IDs of the models to download (up to 3)"
+        ..., help="The IDs of the models to download (up to 5)"
     ),
     select: bool = typer.Option(
         False, "--select", "-s", help="Enable version selection for each model"
     ),
 ):
     """
-    Download up to 3 specific model variants by ID.
-    :param identifiers: The IDs of the models to download (up to 3).
+    Download up to 5 specific model variants by ID.
+    :param identifiers: The IDs of the models to download (up to 5).
     :param select: Enable version selection for each model.
     :return: None
     """
-    if len(identifiers) > 3:
+    if len(identifiers) > 5:
         typer.echo(
-            "You can download a maximum of 3 models at a time. Only the first 3 will be processed."
+            "You can download a maximum of 5 models at a time. Only the first 5 will be processed."
         )
-        identifiers = identifiers[:3]
+        identifiers = identifiers[:5]
 
     typer.echo(f"Preparing to download {len(identifiers)} model(s)...")
 

@@ -30,7 +30,8 @@ dependencies = [
    "openai",
    "groq",
    "tenacity",
-   "asyncio"
+   "asyncio",
+   "civitai-py"
 ]
 
 [tool.hatch.version]
@@ -39,7 +40,6 @@ path = "civitai_models_manager/__version__.py"
 [tool.setuptools]
 packages = ["civitai_models_manager"]
 package-dir = {"" = "civitai_models_manager"}
-
 
 [project.urls]
 Repository = "https://github.com/regiellis/civitai-cli-manager"

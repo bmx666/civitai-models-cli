@@ -1,6 +1,8 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [0.8.6] - 2025-04-16
+- **Chore**: Some QOL Fixes, no new features
 ## [0.8.5] - 2024-09-07
 - **Hotfix**: Image import fix
 

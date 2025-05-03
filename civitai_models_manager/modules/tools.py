@@ -22,6 +22,8 @@ Ollama = (
 
 console = Console()
 
+API_URL = "https://civitai.com/api/v1/models"
+
 
 def check_models_dir() -> Dict[str, Any]:
     models_dir = os.environ.get("MODELS_DIR")
@@ -50,7 +52,7 @@ def check_civitai_token() -> Dict[str, Any]:
 
 def check_api_availability() -> Dict[str, Any]:
     civitai_models_url = os.environ.get(
-        "CIVITAI_MODELS", "https://civitai.com/api/v1/models"
+        "CIVITAI_MODELS", API_URL
     )
     try:
         response = httpx.get(civitai_models_url, timeout=10)

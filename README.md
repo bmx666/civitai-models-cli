@@ -132,12 +132,15 @@ This tool requires Python 3.11 or higher and has the following dependencies:
 - rich
 - httpx
 - shellingham
-- tqdm
-- civitai
+- html2text
 - python-dotenv
 - questionary
 - ollama
 - openai
+- groq
+- asyncio
+- tenacity
+- civitai-py
 ```
 
 These dependencies enhance usability, including user interactions, downloadable progress visuals, and environment variable management.
