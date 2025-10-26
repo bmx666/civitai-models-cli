@@ -11,6 +11,8 @@ from enum import Enum
 from rich.text import Text
 from rich.markdown import Markdown
 from rich.console import Console
+import shutil
+import tempfile
 
 __all__ = ["get_model_details_cli"]
 
@@ -247,6 +249,13 @@ def print_model_details(
 
     if desc:
         desc_table = create_table("", [("Description", "white")])
+        if model_details["description"]:
+            with tempfile.NamedTemporaryFile(
+                mode="w", delete=False, suffix=".md"
+            ) as temp_file:
+                temp_file.write(model_details["description"])
+                temp_file.close()
+                shutil.move(temp_file.name, f"desc_{model_details["id"]}.md")
         desc_table.add_row(Markdown(h2t.handle(model_details["description"])))
         console.print(desc_table)
 
